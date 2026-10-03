@@ -1,12 +1,15 @@
 import { useState } from 'react'
-import { Button, Checkbox, Select, Space, Tag, Typography, message } from 'antd'
+import { Alert, Button, Checkbox, Select, Space, Tag, Typography, message } from 'antd'
 import { DownloadOutlined, FilePdfOutlined } from '@ant-design/icons'
+import { useNavigate } from 'react-router-dom'
 import { useIssues } from '../api/useIssues'
 import { useWorkspaceStore } from '../store/useWorkspaceStore'
 
 export default function ReportPage() {
   useIssues()
   const issues = useWorkspaceStore((state) => state.issues)
+  const pendingConflicts = useWorkspaceStore((state) => state.conflicts.filter((item) => item.status === '待处理').length)
+  const navigate = useNavigate()
   const [site, setSite] = useState('全部站点')
   const [includeEvidence, setIncludeEvidence] = useState(true)
   const [includeHistory, setIncludeHistory] = useState(true)
@@ -15,7 +18,7 @@ export default function ReportPage() {
   const exportCsv = () => {
     const rows = [
       ['编号', '站点', '版本', '问题', 'WCAG', '影响', '状态', '团队', '负责人', '截止日期'],
-      ...visible.map((issue) => [issue.key, issue.site, issue.version, issue.title, issue.wcag.join(' / '), issue.impact, issue.status, issue.team, issue.owner, issue.dueDate]),
+      ...visible.map((issue) => [issue.key, issue.site, issue.productVersion, issue.title, issue.wcag.join(' / '), issue.impact, issue.status, issue.team, issue.owner, issue.dueDate]),
     ]
     const csv = rows.map((row) => row.map((cell) => `"${String(cell).replaceAll('"', '""')}"`).join(',')).join('\n')
     const url = URL.createObjectURL(new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8' }))
@@ -50,6 +53,17 @@ export default function ReportPage() {
         </Space>
       </div>
 
+      {pendingConflicts > 0 && (
+        <Alert
+          type="warning"
+          showIcon
+          style={{ marginBottom: 14 }}
+          message={`当前有 ${pendingConflicts} 项修改处于冲突待处理，未计入本报告正式统计`}
+          description="并发提交的团队、状态与记录修改在逐字段确认前不会覆盖台账，确认后按原操作号写入。"
+          action={<Button size="small" onClick={() => navigate('/conflicts')}>去处理</Button>}
+        />
+      )}
+
       <article className="panel report-sheet">
         <header style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '3px solid #173e4d', paddingBottom: 16 }}>
           <div><Typography.Text type="secondary">数字体验无障碍治理项目</Typography.Text><h2>网站无障碍整改报告</h2><Typography.Text>生成日期：2026-09-29 · WCAG 2.2 AA</Typography.Text></div>
@@ -61,7 +75,7 @@ export default function ReportPage() {
             {visible.map((issue) => (
               <tr key={issue.key}>
                 <td>{issue.key}</td>
-                <td>{issue.site}<br /><Typography.Text type="secondary">{issue.version}</Typography.Text></td>
+                <td>{issue.site}<br /><Typography.Text type="secondary">{issue.productVersion}</Typography.Text></td>
                 <td><strong>{issue.title}</strong><br />{issue.wcag.join(' / ')}{includeEvidence && <><br /><Typography.Link href={issue.evidence}>查看证据</Typography.Link></>}</td>
                 <td><Tag color={issue.impact === '致命' ? 'red' : issue.impact === '严重' ? 'volcano' : 'gold'}>{issue.impact}</Tag></td>
                 <td>{issue.status}<br />{issue.team} / {issue.owner}</td>

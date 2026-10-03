@@ -1,5 +1,5 @@
 import { Button, Progress, Space, Tag, Typography } from 'antd'
-import { ArrowRightOutlined, CheckCircleOutlined, ClockCircleOutlined, ExclamationCircleOutlined } from '@ant-design/icons'
+import { ArrowRightOutlined, CheckCircleOutlined, ClockCircleOutlined, ExclamationCircleOutlined, WarningOutlined } from '@ant-design/icons'
 import { useNavigate } from 'react-router-dom'
 import { useIssues } from '../api/useIssues'
 import { useWorkspaceStore } from '../store/useWorkspaceStore'
@@ -7,6 +7,7 @@ import { useWorkspaceStore } from '../store/useWorkspaceStore'
 export default function DashboardPage() {
   useIssues()
   const issues = useWorkspaceStore((state) => state.issues)
+  const pendingConflicts = useWorkspaceStore((state) => state.conflicts.filter((item) => item.status === '待处理').length)
   const navigate = useNavigate()
   const open = issues.filter((item) => !['已通过', '不适用'].includes(item.status))
   const passed = issues.filter((item) => item.status === '已通过').length
@@ -36,6 +37,7 @@ export default function DashboardPage() {
         <div className="metric-card"><span>严重 / 致命</span><strong style={{ color: '#b84f32' }}>{critical}</strong><small>需优先排期</small></div>
         <div className="metric-card"><span>复测通过率</span><strong>{coverage}%</strong><small>当前版本口径</small></div>
         <div className="metric-card"><span>覆盖站点</span><strong>{bySite.length}</strong><small>统一 WCAG 2.2 AA</small></div>
+        <div className="metric-card"><span>冲突待处理</span><strong style={{ color: pendingConflicts ? '#ba4d31' : undefined }}>{pendingConflicts}</strong><small>未计入正式统计</small></div>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1.2fr) minmax(300px,.8fr)', gap: 14 }}>
@@ -58,14 +60,15 @@ export default function DashboardPage() {
           <div className="panel-head"><h3>处理关注</h3><span className="muted">智能排序</span></div>
           <div style={{ padding: 12 }}>
             {[
-              { icon: <ExclamationCircleOutlined />, tone: '#ba4d31', title: 'P0 键盘陷阱', detail: 'A11Y-1048 已修复但尚未提交复测', action: '前往复测' },
-              { icon: <ClockCircleOutlined />, tone: '#ba8529', title: '2 项临近截止', detail: '未来 3 天内到期，涉及基础组件组', action: '查看排期' },
-              { icon: <CheckCircleOutlined />, tone: '#367d61', title: '重复问题合并节省 6 次处理', detail: '根因“Drawer focus trap”关联 3 项问题', action: '查看合并关系' },
+              ...(pendingConflicts > 0 ? [{ icon: <WarningOutlined />, tone: '#ba4d31', title: `${pendingConflicts} 项冲突待处理`, detail: '并发修改版本落后，需逐字段确认采用', action: '前往处理', to: '/conflicts' }] : []),
+              { icon: <ExclamationCircleOutlined />, tone: '#ba4d31', title: 'P0 键盘陷阱', detail: 'A11Y-1048 已修复但尚未提交复测', action: '前往复测', to: '/retest' },
+              { icon: <ClockCircleOutlined />, tone: '#ba8529', title: '2 项临近截止', detail: '未来 3 天内到期，涉及基础组件组', action: '查看排期', to: '/issues' },
+              { icon: <CheckCircleOutlined />, tone: '#367d61', title: '重复问题合并节省 6 次处理', detail: '根因“Drawer focus trap”关联 3 项问题', action: '查看合并关系', to: '/issues' },
             ].map((item) => (
               <div key={item.title} style={{ display: 'flex', gap: 10, padding: 12, borderBottom: '1px solid #edf1f2' }}>
                 <span style={{ color: item.tone, fontSize: 20 }}>{item.icon}</span>
                 <div style={{ flex: 1 }}><Typography.Text strong>{item.title}</Typography.Text><Typography.Paragraph type="secondary" style={{ margin: '5px 0 0', fontSize: 12 }}>{item.detail}</Typography.Paragraph></div>
-                <Button size="small" type="link" onClick={() => navigate('/retest')}>{item.action}</Button>
+                <Button size="small" type="link" onClick={() => navigate(item.to)}>{item.action}</Button>
               </div>
             ))}
           </div>

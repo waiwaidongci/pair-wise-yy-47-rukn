@@ -18,7 +18,7 @@ import type { ColumnsType } from 'antd/es/table'
 import { FilterOutlined, MergeCellsOutlined, SaveOutlined, TeamOutlined } from '@ant-design/icons'
 import { useIssues } from '../api/useIssues'
 import { useWorkspaceStore } from '../store/useWorkspaceStore'
-import type { Issue } from '../api/types'
+import type { ConflictRecord, Issue } from '../api/types'
 
 const impactColor: Record<string, string> = { 致命: 'red', 严重: 'volcano', 中等: 'gold', 轻微: 'blue' }
 const statusColor: Record<string, string> = { 待分配: 'default', 修复中: 'processing', 待复测: 'orange', 已通过: 'success', 已退回: 'error', 不适用: 'default' }
@@ -32,6 +32,8 @@ export default function IssuesPage() {
   const saveFilter = useWorkspaceStore((state) => state.saveFilter)
   const removeFilter = useWorkspaceStore((state) => state.removeFilter)
   const mergeIssues = useWorkspaceStore((state) => state.mergeIssues)
+  const setIssues = useWorkspaceStore((state) => state.setIssues)
+  const addConflicts = useWorkspaceStore((state) => state.addConflicts)
   const [filters, setFilters] = useState({ query: '', site: '', status: '', priority: '' })
   const [detail, setDetail] = useState<Issue | null>(null)
   const [assignOpen, setAssignOpen] = useState(false)
@@ -59,7 +61,7 @@ export default function IssuesPage() {
         <div><Typography.Text strong>{record.key}</Typography.Text><div>{record.title}</div><Typography.Text type="secondary" style={{ fontSize: 11 }}>{record.wcag.join(' / ')}</Typography.Text></div>
       ),
     },
-    { title: '站点 / 版本', dataIndex: 'site', width: 130, render: (_, record) => <div>{record.site}<br /><Typography.Text type="secondary">{record.version}</Typography.Text></div> },
+    { title: '站点 / 版本', dataIndex: 'site', width: 130, render: (_, record) => <div>{record.site}<br /><Typography.Text type="secondary">{record.productVersion}</Typography.Text></div> },
     { title: '影响', dataIndex: 'impact', width: 86, render: (value) => <Tag color={impactColor[value]}>{value}</Tag> },
     { title: '根因', dataIndex: 'rootCause', width: 220, render: (value) => <span className="root-cause" title={value}>{value}</span> },
     { title: '优先级', dataIndex: 'priority', width: 76, render: (value) => <Tag>{value}</Tag> },
@@ -127,7 +129,7 @@ export default function IssuesPage() {
           <Space direction="vertical" size={18} style={{ width: '100%' }}>
             <Space wrap><Tag color={impactColor[detail.impact]}>{detail.impact}</Tag><Tag>{detail.priority}</Tag><Tag color={statusColor[detail.status]}>{detail.status}</Tag></Space>
             <dl className="detail-list">
-              <dt>站点版本</dt><dd>{detail.site} / {detail.version}</dd>
+              <dt>站点版本</dt><dd>{detail.site} / {detail.productVersion}</dd>
               <dt>WCAG</dt><dd>{detail.wcag.join('、')}</dd>
               <dt>影响范围</dt><dd>{detail.affected}</dd>
               <dt>复现条件</dt><dd>{detail.reproduction}</dd>
@@ -147,11 +149,51 @@ export default function IssuesPage() {
 
       <Modal title="批量分配整改项" open={assignOpen} onCancel={() => setAssignOpen(false)} onOk={() => form.submit()} okText="确认分配">
         <Form form={form} layout="vertical" onFinish={async (values) => {
-          await axios.post('/api/issues/bulk-assign', { keys: selectedKeys, ...values, dueDate: values.dueDate.format('YYYY-MM-DD') })
-          message.success(`已分配 ${selectedKeys.length} 条问题`)
-          setSelectedKeys([])
-          setAssignOpen(false)
-          window.location.reload()
+          const opNo = crypto.randomUUID()
+          const baseVersions: Record<string, number> = {}
+          for (const key of selectedKeys) {
+            const issue = issues.find((item) => item.key === key)
+            if (issue) baseVersions[key] = issue.version
+          }
+          message.loading({ content: '提交批量分配…', key: 'bulk-assign' })
+          try {
+            let attempt = 0
+            let data: { updated: number; conflicts: ConflictRecord[]; changed: Issue[] } | undefined
+            for (;;) {
+              try {
+                const response = await axios.post<{ updated: number; conflicts: ConflictRecord[]; changed: Issue[] }>(
+                  '/api/issues/bulk-assign',
+                  { keys: selectedKeys, ...values, dueDate: values.dueDate.format('YYYY-MM-DD'), opNo, baseVersions },
+                )
+                data = response.data
+                break
+              } catch (error) {
+                const status = axios.isAxiosError(error) ? error.response?.status : undefined
+                if ((status == null || status >= 500) && attempt < 3) {
+                  attempt += 1
+                  message.loading({ content: `网络中断，正在重试（操作号 ${opNo.slice(0, 8)}）第 ${attempt} 次`, key: 'bulk-assign' })
+                  await new Promise((resolve) => setTimeout(resolve, 800))
+                  continue
+                }
+                throw error
+              }
+            }
+            if (!data) throw new Error('no data')
+            if (data.changed?.length) {
+              const changedMap = new Map(data.changed.map((item) => [item.key, item]))
+              setIssues(issues.map((issue) => changedMap.get(issue.key) ?? issue))
+            }
+            if (data.conflicts?.length) {
+              addConflicts(data.conflicts)
+              message.warning({ content: `已分配 ${data.updated} 条，${data.conflicts.length} 条版本落后进入冲突待处理`, key: 'bulk-assign' })
+            } else {
+              message.success({ content: `已分配 ${data.updated} 条问题（操作号 ${opNo.slice(0, 8)}）`, key: 'bulk-assign' })
+            }
+            setSelectedKeys([])
+            setAssignOpen(false)
+          } catch {
+            message.error({ content: '分配失败，请稍后在网络恢复后重试', key: 'bulk-assign' })
+          }
         }}>
           <Form.Item name="team" label="目标团队" rules={[{ required: true }]}><Select options={['前端基础组件组', '结算体验组', '数据可视化组', '供应链前端组'].map((value) => ({ value }))} /></Form.Item>
           <Form.Item name="owner" label="负责人" rules={[{ required: true }]}><Input placeholder="输入负责人姓名" /></Form.Item>

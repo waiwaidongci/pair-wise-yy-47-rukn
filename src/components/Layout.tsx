@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
-import { Button, Drawer, Layout, Menu, Space, Tag, Typography } from 'antd'
+import { Badge, Button, Drawer, Layout, Menu, Space, Tag, Typography } from 'antd'
 import {
   AppstoreOutlined,
   AuditOutlined,
@@ -8,18 +8,30 @@ import {
   DiffOutlined,
   FileDoneOutlined,
   MenuOutlined,
+  WarningOutlined,
 } from '@ant-design/icons'
-
-const items = [
-  { key: '/', icon: <AppstoreOutlined />, label: <NavLink to="/">整改总览</NavLink> },
-  { key: '/issues', icon: <BarsOutlined />, label: <NavLink to="/issues">问题台账</NavLink> },
-  { key: '/retest', icon: <AuditOutlined />, label: <NavLink to="/retest">复测工作台</NavLink> },
-  { key: '/versions', icon: <DiffOutlined />, label: <NavLink to="/versions">版本差异</NavLink> },
-  { key: '/report', icon: <FileDoneOutlined />, label: <NavLink to="/report">整改报告</NavLink> },
-]
+import { useWorkspaceStore } from '../store/useWorkspaceStore'
 
 export default function AppLayout() {
   const [open, setOpen] = useState(false)
+  const pendingConflicts = useWorkspaceStore((state) => state.conflicts.filter((item) => item.status === '待处理').length)
+  const items = [
+    { key: '/', icon: <AppstoreOutlined />, label: <NavLink to="/">整改总览</NavLink> },
+    { key: '/issues', icon: <BarsOutlined />, label: <NavLink to="/issues">问题台账</NavLink> },
+    { key: '/retest', icon: <AuditOutlined />, label: <NavLink to="/retest">复测工作台</NavLink> },
+    { key: '/versions', icon: <DiffOutlined />, label: <NavLink to="/versions">版本差异</NavLink> },
+    { key: '/report', icon: <FileDoneOutlined />, label: <NavLink to="/report">整改报告</NavLink> },
+    {
+      key: '/conflicts',
+      icon: <WarningOutlined />,
+      label: (
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+          <NavLink to="/conflicts">冲突待处理</NavLink>
+          {pendingConflicts > 0 && <Badge count={pendingConflicts} size="small" />}
+        </span>
+      ),
+    },
+  ]
   const sidebar = (
     <div className="sidebar-inner">
       <div className="brand">

@@ -5,6 +5,7 @@ import IssuesPage from './pages/IssuesPage'
 import RetestPage from './pages/RetestPage'
 import VersionsPage from './pages/VersionsPage'
 import ReportPage from './pages/ReportPage'
+import ConflictsPage from './pages/ConflictsPage'
 
 export default function App() {
   return (
@@ -15,6 +16,7 @@ export default function App() {
         <Route path="/retest" element={<RetestPage />} />
         <Route path="/versions" element={<VersionsPage />} />
         <Route path="/report" element={<ReportPage />} />
+        <Route path="/conflicts" element={<ConflictsPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>
