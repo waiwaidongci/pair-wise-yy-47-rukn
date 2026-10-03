@@ -3,6 +3,7 @@ import Layout from './components/Layout'
 import DashboardPage from './pages/DashboardPage'
 import IssuesPage from './pages/IssuesPage'
 import RetestPage from './pages/RetestPage'
+import ConflictsPage from './pages/ConflictsPage'
 import VersionsPage from './pages/VersionsPage'
 import ReportPage from './pages/ReportPage'
 
@@ -13,6 +14,7 @@ export default function App() {
         <Route path="/" element={<DashboardPage />} />
         <Route path="/issues" element={<IssuesPage />} />
         <Route path="/retest" element={<RetestPage />} />
+        <Route path="/conflicts" element={<ConflictsPage />} />
         <Route path="/versions" element={<VersionsPage />} />
         <Route path="/report" element={<ReportPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />

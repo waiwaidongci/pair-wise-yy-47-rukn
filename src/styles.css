@@ -56,6 +56,18 @@ body { min-width: 320px; }
 .report-sheet th, .report-sheet td { padding: 9px; border: 1px solid #dbe2e5; text-align: left; }
 .report-sheet th { background: #edf3f4; }
 
+/* 并发冲突提示与逐字段处理 */
+.conflict-banner { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 12px 16px; margin-bottom: 12px; border: 1px solid #e8c7bd; border-radius: 10px; background: #fdf4f1; }
+.conflict-banner a { margin-left: auto; color: #b84f32; font-weight: 600; }
+.conflict-card { border-color: #e8c7bd; }
+.conflict-card .ant-card-head { background: #fdf4f1; }
+.conflict-card .cell-current { color: #9a4d35; }
+.conflict-card .cell-incoming { color: #26705a; }
+.ant-table tr.row-conflicted > td { background: #fdf4f1 !important; }
+.sync-card .ant-switch { justify-self: end; }
+.mobile-header .sync-card { position: static; display: flex; align-items: center; gap: 6px; padding: 4px 8px; border-radius: 6px; background: transparent; border-color: transparent; }
+.mobile-header .sync-card strong, .mobile-header .sync-card span { display: none; }
+
 @media (max-width: 760px) {
   .page { padding: 12px; }
   .page-head { align-items: flex-start; flex-direction: column; }

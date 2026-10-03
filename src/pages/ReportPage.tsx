@@ -1,16 +1,22 @@
 import { useState } from 'react'
-import { Button, Checkbox, Select, Space, Tag, Typography, message } from 'antd'
+import { Alert, Button, Checkbox, Select, Space, Tag, Typography, message } from 'antd'
 import { DownloadOutlined, FilePdfOutlined } from '@ant-design/icons'
-import { useIssues } from '../api/useIssues'
+import { useConflicts, useIssues } from '../api/useIssues'
 import { useWorkspaceStore } from '../store/useWorkspaceStore'
+import { officialIssues, openConflicts } from '../api/selectors'
 
 export default function ReportPage() {
   useIssues()
+  useConflicts()
   const issues = useWorkspaceStore((state) => state.issues)
+  const conflicts = useWorkspaceStore((state) => state.conflicts)
   const [site, setSite] = useState('全部站点')
   const [includeEvidence, setIncludeEvidence] = useState(true)
   const [includeHistory, setIncludeHistory] = useState(true)
-  const visible = issues.filter((item) => site === '全部站点' || item.site === site)
+  // 正式统计只认未冲突台账
+  const pendingConflicts = openConflicts(conflicts)
+  const ledger = officialIssues(issues, conflicts)
+  const visible = ledger.filter((item) => site === '全部站点' || item.site === site)
 
   const exportCsv = () => {
     const rows = [
@@ -41,6 +47,15 @@ export default function ReportPage() {
         </Space>
       </div>
 
+      {pendingConflicts.length > 0 && (
+        <Alert
+          type="warning"
+          showIcon
+          style={{ marginBottom: 14 }}
+          message={`${pendingConflicts.length} 个冲突待处理：相关问题已移出本次报告统计口径，解决后会自动纳入。`}
+        />
+      )}
+
       <div className="panel" style={{ padding: 12, marginBottom: 14 }}>
         <Space wrap>
           <span>报告范围</span>
@@ -53,7 +68,12 @@ export default function ReportPage() {
       <article className="panel report-sheet">
         <header style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '3px solid #173e4d', paddingBottom: 16 }}>
           <div><Typography.Text type="secondary">数字体验无障碍治理项目</Typography.Text><h2>网站无障碍整改报告</h2><Typography.Text>生成日期：2026-09-29 · WCAG 2.2 AA</Typography.Text></div>
-          <div style={{ textAlign: 'right' }}><Tag color="blue">{site}</Tag><div>问题 {visible.length} 项</div><div>通过 {visible.filter((item) => item.status === '已通过').length} 项</div></div>
+          <div style={{ textAlign: 'right' }}>
+            <Tag color="blue">{site}</Tag>
+            <div>问题 {visible.length} 项{issues.length !== ledger.length ? <Typography.Text type="danger">（仅未冲突台账）</Typography.Text> : null}</div>
+            <div>通过 {visible.filter((item) => item.status === '已通过').length} 项</div>
+            {pendingConflicts.length > 0 && <div><Typography.Text type="warning">冲突待处理 {pendingConflicts.length} 个</Typography.Text></div>}
+          </div>
         </header>
         <table>
           <thead><tr><th>编号</th><th>页面 / 范围</th><th>问题与 WCAG</th><th>影响</th><th>状态 / 责任</th><th>截止</th></tr></thead>
